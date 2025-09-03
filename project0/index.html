@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Project 0: Dolly Zoom</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<h1>Project 0: Dolly Zoom</h1>
+<p><b>By Khoo An Xian</b></p>
+
+  The goal of this project is to gain understanding of the relationship between perspective, 
+  focal length/zoom, and the center of projection.
+</p>
+
+<!-- Table of contents -->
+<div id="toc">
+  <h2>Table of Contents</h2>
+  <ul id="toc-list"></ul>
+</div>
+
+<!-- Part 1 -->
+<h1 id="part1">Part 1: Selfie </h1>
+<table>
+  <tr>
+    <th>Close Up</th>
+    <th>Zoom From Distance</th>
+  </tr>
+  <tr>
+    <td><img src="p1-closeup.jpg" alt="Close Up"></td>
+    <td><img src="p1-zoomdist.jpg" alt="Zoom From Distance"></td>
+  </tr>
+</table>
+<p><b>Perspective distortion increases as the face-to-camera distance decreases.</b></p>
+
+Close-up shots exaggerate depth differences between facial features. In my close-up selfie, the camera is positioned very close to my face. 
+According to the pinhole camera model, features closer to the camera (eg. nose) project to a larger area on the image plane, 
+while features that are farther from the camera (eg. ears) project smaller, resulting in an exaggerated or distorted appearance.
+</p>
+When the camera is positioned farther away from me, the relative depth variation across my face becomes small compared to the camera-subject distance,
+reducing perspective distortion. In this set up, the camera uses a longer focal length to capture my face at the same image size, but with more accurate proportions.
+</p>
+
+<!-- Part 2 -->
+<h1 id="part2">Part 2: Architectural Perspective Compression</h1>
+<table>
+  <tr>
+    <th>Close Up</th>
+    <th>Zoom From Distance</th>
+    <th>Gif for Comparison</th>
+  </tr>
+  <tr>
+    <td><img src="p2-closeup.jpg" alt="Close Up"></td>
+    <td><img src="p2-zoom.jpg" alt="Zoom From Distance"></td>
+    <td><img src="p2-demo.gif" alt="Demo GIF"></td> 
+  </tr>
+</table>
+<p><b>Perspective compression of a scene increases with greater subject distance.</b></p>
+
+In the first photo, the camera is closer to the scene. Because the relative depth differences are larger compared to the camera distance, 
+the same scene appears more spatially spread out, with greater apparent separation between the trees. 
+</p>
+In the second photo, the camera is further from the scene and is zoomed in. The relative depth differences between objects become smaller compared to the camera distance, and so 
+the trees along the depth axis appear closer together on the image plane. As a result, the scene looks flattened or compressed.
+</p>
+
+<!-- Part 3 -->
+<h1 id="part3">Part 3: Dolly Zoom</h1>
+<div>
+  <img src="p3-dollyzoom.gif" alt="Dolly Zoom Gif">
+</div>
+<p> 
+The Dolly Zoom works by moving the camera farther from the subject (dolly) while simultaneously adjusting the focal length (zoom). 
+As the camera moves away, image of the subject is kept constant in scale but the background elements appear to compress forward. 
+Applied to a Jenga tower, this effect emphasizes the height and instability of the stack, enhancing a sense of tension and precariousness in the scene. 
+</p>
+
+<!-- table of contents script -->
+<script>
+  const tocList = document.getElementById("toc-list");
+  document.querySelectorAll("h1, h2").forEach(header => {
+    if (header.id) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.textContent = header.textContent;
+      a.href = "#" + header.id;
+      li.appendChild(a);
+      tocList.appendChild(li);
+    }
+  });
+</script>
+
+</body>
+</html>
