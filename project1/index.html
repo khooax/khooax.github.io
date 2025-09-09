@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Project 0: Dolly Zoom</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<h1>Project 1: Colorising the Prokudin-Gorskii photo collection</h1>
+<p><b>By Khoo An Xian</b></p>
+
+The goal of this project is to colorize digitized Prokudin-Gorskii glass plate images and, using image processing techniques, automatically produce a color image. 
+The overall idea is to split the three stacked channel images and align them to form a single RGB color image. 
+</p>
+
+<!-- Table of contents -->
+<div id="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc-list"></ul>
+</div>
+
+<!-- Part 1 -->
+<h2 id="part1">Part 1: Single Scale Alignment </h2>
+<h3>Approach </h3>
+
+For smaller images, alignment can be performed directly at the original resolution using single-scale alignment. 
+</p>
+The stacked image is first split into its three channels (B, G, R), and the blue channel is chosen as the reference.To align the red and green channels to blue, 
+we search over a fixed displacement window (±15 pixels in both x and y directions). For each candidate displacement, the sum of squared differences (SSD) between 
+overlapping pixels of the shifted and reference channel is computed. The displacement that produces the lowest SSD is selected, and the channel is shifted accordingly. 
+This procedure is repeated for both red and green channels, after which the aligned channels are stacked to form the final color image
+
+<h3>Results</h3>
+
+<table>
+  <tr>
+    <td><img src="images/singlescale/monastery.jpg" alt="Monastery"></td>
+    <td><img src="images/singlescale/cathedral.jpg" alt="Cathedral"></td>
+    <td><img src="images/singlescale/tobolsk.jpg" alt="Tobolsk"></td>
+  </tr>
+</table>
+
+<table border="1" cellpadding="4" style="border-collapse: collapse; text-align: center;">
+  <thead>
+    <tr>
+      <th>Image</th>
+      <th>G Displacement</th>
+      <th>R Displacement</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Monastery</td>
+      <td>(-3, 2)</td>
+      <td>(3, 2)</td>
+    </tr>
+    <tr>
+      <td>Cathedral</td>
+      <td>(5, 2)</td>
+      <td>(12, 3)</td>
+    </tr>
+    <tr>
+      <td>Tobolsk</td>
+      <td>(3, 2)</td>
+      <td>(6, 3)</td>
+    </tr>
+  </tbody>
+</table>
+
+
+<!-- Part 2 -->
+<h2 id="part1">Part 2: Multi Scale Alignment </h2>
+<h3>Approach </h3>
+
+For larger, high resolution images, single-scale alignment becomes inefficient as the required pixel displacements are large and exhaustive search will be computationally expensive. 
+</p>
+<b>Multi-scale alignment</b> addresses this by using an <b>image pyramid</b> and a <b>coarse-to-fine</b> search strategy. We repeatedly downsample an image by a factor of 2 at each level,
+ creating progressively smaller versions. Starting with the coarsest level (smallest dimensions), we determine the best displacements (dx, dy) relative to that dimension using single-scale alignment.
+ These displacements are then scaled up and used as an initial guess for the next finer level, where a small search window refines the alignment. This process continues until the full-resolution 
+ image is reached. By combining coarse-to-fine search with iterative refinement, pyramid alignment significantly reduces computation while avoiding local minima, making it ideal for accurately aligning 
+ large images such as high-resolution TIFFs.
+ 
+<h3>Results</h3>
+
+<table>
+  <tr>
+    <td><img src="images/multiscale/church.png" alt="Church"></td>
+    <td><img src="images/multiscale/melons.png" alt="melons"></td>
+    <td><img src="images/multiscale/harvesters.png" alt="Harvesters"></td>
+  </tr>
+  <tr>
+    <td><img src="images/multiscale/icon.png" alt="Emir"></td>
+    <td><img src="images/multiscale/italil.png" alt="Emir"></td>
+    <td><img src="images/multiscale/lastochikino.png" alt="Lastochikino"></td>
+  </tr>
+  <tr>
+    <td><img src="images/multiscale/lugano.png" alt="Lugano"></td>
+    <td><img src="images/multiscale/siren.png" alt="Siren"></td>
+    <td><img src="images/multiscale/three_gen.png" alt="Three generations"></td>
+  </tr>
+  <tr>
+    <td><img src="images/multiscale/self_portrait.png" alt="Self portrait"></td>
+    <td><img src="images/multiscale/emir.png" alt="Emir"></td>
+  </tr>
+</table>
+
+<table border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; text-align: center;">
+  <thead>
+    <tr>
+      <th>Image</th>
+      <th>R Displacement</th>
+      <th>G Displacement</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Church</td>
+      <td>(23, -4)</td>
+      <td>(56, -11)</td>
+    </tr>
+    <tr>
+      <td>Melons</td>
+      <td>(83, 4)</td>
+      <td>(174, 7)</td>
+    </tr>
+    <tr>
+      <td>Harvesters</td>
+      <td>(59, 9)</td>
+      <td>(120, 7)</td>
+    </tr>
+    <tr>
+      <td>Icon</td>
+      <td>(42, 16)</td>
+      <td>(89, 22)</td>
+    </tr>
+    <tr>
+      <td>Italil</td>
+      <td>(38, 18)</td>
+      <td>(77, 34)</td>
+    </tr>
+    <tr>
+      <td>Lastochikino</td>
+      <td>(-3, -2)</td>
+      <td>(69, -6)</td>
+    </tr>
+    <tr>
+      <td>Lugano</td>
+      <td>(35, -11)</td>
+      <td>(92, -28)</td>
+    </tr>
+    <tr>
+      <td>Siren</td>
+      <td>(48, -7)</td>
+      <td>(101, -20)</td>
+    </tr>
+    <tr>
+      <td>Three generations</td>
+      <td>(52, 5)</td>
+      <td>(110, 7)</td>
+    </tr>
+    <tr>
+      <td>Self portrait</td>
+      <td>(71, -1)</td>
+      <td>(159, -3)</td>
+    </tr>
+    <tr>
+      <td>Emir</td>
+      <td>(39, 15)</td>
+      <td>(107, 17)</td>
+    </tr>
+  </tbody>
+</table>
+
+The multi-scale alignment algorithm worked well for all images except <b>self_portrait.tif</b> and <b>emir.tif</b> (labelled "Slightly Unaligned"). 
+We investigate this in <b>Part 3: Extra - Gradient-based Alignment</b>. 
+But before that, some extra results from the Prokudin-Gorskii collection to showcase that our current algorithm works even on very intricate images!
+
+<h3>Extra Results</h3>
+
+<table>
+  <tr>
+    <td><img src="images/extra_book.png" alt="Book"></td>
+    <td><img src="images/extra_factory.png" alt="Factory"></td>
+    <td><img src="images/extra_garden.png" alt="Garden"></td>
+  </tr>
+</table>
+
+<!-- Part 3 -->
+
+<h2 id="part1">Part 3: Extra - Gradient-based Alignment </h2>
+
+<img src="images/original_emir.png" alt="Emir original" class="float-right">
+
+Now, we examine why our previous method failed to produce good alignment for self_portrait.tif and emir.tif. 
+</p>
+A likely reason is that the method relies on the sum of squared differences (SSD) of <b>pixel intensities</b> to align channels. This approach assumes that corresponding regions 
+across channels have similar brightness. However, in these images, the assumption does not hold. For example, in emir.tif, Emir's robe appears bright in the blue channel 
+but almost black in the red channel. When brightness varies drastically between channels, minimizing pixel intensity differences is no longer an effective alignment strategy.
+</p>
+
+<h3> Approach </h3>
+To address this, we can use <b>gradient-based alignment</b>. Instead of comparing raw intensities, we compare edges that are usually consistent across channels. 
+We use the Sobel operator to compute horizontal/vertical edges, then align using SSD on edges instead of raw pixel values. 
+</p>
+The Sobel operator uses two small 3×3 convolution kernels. Gx detects vertical edges (changes along x-direction); Gy detects horizontal edges (changes along y-direction). 
+</p>
+<img src="images/sobel.jpg" alt="Sobel operator" style="width:50%" class="center-img">
+<p>
+We take a pixel neighborhood (3×3 window). For each pixel, multiplying the 3x3 patch with Gx and summing the results gives gradient in x (<b>Ix</b>). <b>Ix</b> will be 
+large if there is a large change in left vs right pixel intensities, suggesting a strong vertical edge. Multiplying the 3x3 patch with Gy and summing the results gives 
+a gradient in y (<b>Iy</b>). <b>Iy</b> will be large if there is a large change in top vs bottom pixel intensities, suggesting a strong horizontal edge. 
+For each pixel, a <b>gradient magnitude</b> will be computed with this gradient vector (Ix, Iy). Alignment will be done by minimising SSD between the gradient 
+magnitudes of pixels in the shifted and reference images. 
+
+<h3>Results</h3>
+
+<table>
+  <tr>
+    <td><b>Intensity-based Alignment</b></td>
+    <td><b>Gradient-based Alignment</b></td>
+  </tr>
+  <tr>
+    <td><img src="images/multiscale/emir.png" alt="Emir"></td>
+    <td><img src="images/multiscale/emir_sobel.png" alt="Emir Sobel"></td>
+  </tr>
+  <tr>
+    <td><img src="images/multiscale/self_portrait.png" alt="Self Portrait "></td>
+    <td><img src="images/multiscale/self_portrait_sobel.png" alt="Self Portrait Sobel"></td>
+  </tr>
+</table>
+
+As we can see, the image is now much sharper. Yay:D
+
+<!-- Part 4 -->
+<h2 id="part1">Part 4: Extra – Contrast </h2>
+
+To enhance the images, we can increase contrast! In a low-contrast image, many pixel values may be clustered in a narrow intensity range, making details hard to distinguish. 
+
+<h3> Approach </h3>
+To address this, we use can use histogram equalization to redistribute the pixel intensity values more evenly across the available range. It works by computing the 
+cumulative distribution function (CDF) of the pixel intensities and then mapping the original pixel values to new values such that the histogram of the output image is roughly uniform.
+This spreads out the most frequent intensity values, enhancing differences between dark and bright regions and making the image appear more visually distinct.
+
+<h3>Results</h3>
+
+<table>
+  <tr>
+    <td><b>Original</b></td>
+    <td><b>After contrast</b></td>
+  </tr>
+  <tr>
+    <td><img src="images/multiscale/church.png" alt="Church"></td>
+    <td><img src="images/contrast_church.png" alt="Church contrasted"></td>
+  </tr>
+  <tr>
+    <td><img src="images/multiscale/lugano.png" alt="Lugano "></td>
+    <td><img src="images/contrast_lugano.png" alt="Lugano Contrasted"></td>
+  </tr>
+</table>
+
+<!-- table of contents script -->
+<script>
+  const tocList = document.getElementById("toc-list");
+  document.querySelectorAll("h1, h2").forEach(header => {
+    if (header.id) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.textContent = header.textContent;
+      a.href = "#" + header.id;
+      li.appendChild(a);
+      tocList.appendChild(li);
+    }
+  });
+</script>
+
+With channels aligned and colors restored, even century-old photos get a new life:) 
+
+</body>
+</html>

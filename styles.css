@@ -1,0 +1,68 @@
+/* Reset + Base */
+body {
+  margin: 0;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+  background-color: #fdfbf7;
+  color: #111;
+  line-height: 1.5;
+  padding: 20px;
+}
+
+/* Header */
+header {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 2rem;
+}
+
+header .logo {
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+header .subtitle {
+  font-size: 1.2rem;
+  color: #444;
+  margin-top: 0.25rem;
+}
+
+/* Projects Section */
+main h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.projects {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+}
+
+.project-card {
+  background-color: #fff;
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.06);
+  transition: transform 0.2s ease;
+}
+
+.project-card:hover {
+  transform: translateY(-5px);
+}
+
+.project-card img {
+  width: 100%;
+  border-radius: 8px;
+  margin-bottom: 0.75rem;
+}
+
+.project-card h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.project-card p {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  color: #555;
+}
