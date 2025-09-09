@@ -81,7 +81,7 @@ def align_pyramid(channel, ref, max_shift=15, levels=3):
 
 # -------------------------------------------------
 # Main 
-imname = 'data/extra_factory.tiff'
+imname = 'raw_data/extra_factory.tiff'
 im = img_as_float(io.imread(imname))
 
 # split stacked channels (top to bottom: B, G, R)
