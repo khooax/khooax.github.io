@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Project 2: Fun with Filters and Frequencies</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<h1>Project 2: Fun with Filters and Frequencies</h1>
+<p><b>By Khoo An Xian</b></p>
+
+This project focuses on building intuitions about 2D convolutions and filtering. 
+    Convolution in image processing involves sliding a small filter (kernel) across the image, multiplying it with the local patch of pixels, 
+    and summing the results. This operation can blur, sharpen, detect edges etc depending on the kernel. 
+
+</p>
+
+<!-- Table of contents -->
+<div id="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc-list"></ul>
+</div>
+
+<!-- Part 1 -->
+<h2 id="part1">Part 1: Fun with Filters</h2>
+<h3 id="part1">1.1: Convolutions from Scratch</h3>
+
+<p>
+    <b>Implementation</b>
+</p>
+    The most explicit way to implement convolution is to write <b>four nested loops</b>: two for the image pixels, and two for the kernel elements. 
+    Each output pixel is computed as the sum of elementwise products between the kernel and the corresponding image patch. However, this method is slow. 
+</p>
+    We can make the convolution much faster by reducing to <b>two for-loops</b>. Instead of looping over kernel elements, we directly 
+    extract an image patch the same size as the kernel and let NumPy handle the elementwise multiplication and summation efficiently.
+</p>
+    Near the edges, part of the kernel would “hang off” the image, leaving undefined values. To handle this, we pad the input image with extra pixels before applying the kernel.
+    Specifically, we add kH // 2 rows of padding on the top and bottom, and kW // 2 columns on the left and right, where kH and kW are the kernel’s height and width. This ensures that 
+    the kernel always has valid pixel values to multiply with, and the output image remains the same size as the input, since every input pixel (including edge pixels) 
+    now has a full neighborhood defined.
+</p>
+
+<table>
+  <tr>
+    <td><b>4 loops</b></td>
+    <td><b>2 loops</b></td>
+  </tr>  
+  <tr>
+    <td><img src="web_images/2loopcode.png"></td>
+    <td><img src="web_images/4loopcode.png"></td>
+  </tr>
+</table>
+
+<p>
+    <b>Testing</b>
+</p>
+    Now, lets test it with a picture of me! Using the 2-loop implementation, I convolve my picture seperately with a 9x9 box filter and finite difference operators Dx and Dy. 
+    The box filter (9x9 array of 1s) blurs the image by replacing each pixel with the average pixel value in its 9x9 neighbourhood. Dx = [[1, 0, -1]] detects vertical 
+    edges by outputting pixel intensity differences between the left and right pixels, and Dy [[1], [0], [-1]] detects horizontal edges by outputting intensity 
+    differences between pixels above and below.
+</p>
+
+<img src="results/1.1_selfieblur.png"> 
+<img src="results/1.1_selfieedges.png">
+
+<p>
+    <b>Comparison with SciPy</b>
+</p>
+    We can compare our implementations against SciPy's convolve2d in terms of both runtime and accuracy. Accuracy is gauged by looking at the largest 
+    pixel difference between the outputs of our implementations vs convolve2d. We see that runtime differs significantly (with 4-loops being least efficient 
+    and convolve2d being most efficient) but output results are similar. 
+</p>
+
+<table border="1" cellpadding="4" style="border-collapse: collapse; text-align: center;">
+  <thead>
+    <tr>
+      <th>Implementation</th>
+      <th>Runtime</th>
+      <th>Max pixel diff from convolve2d </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>4 loops</td>
+      <td>54.3117s</td>
+      <td>2.442e-15</td>
+    </tr>
+    <tr>
+      <td>2 loops</td>
+      <td>7.6668s</td>
+      <td>7.772e-16</td>
+    </tr>
+    <tr>
+      <td>convolve2d</td>
+      <td>0.2990s</td>
+      <td>0</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- Part 1.2 -->
+<h3 id="part1">1.2: Finite Difference Operator</h3>
+
+    Now, let's compute gradient magnitude images and edge images. The gradient magnitude for each pixel is obtained by taking <code>grad_mag = np.sqrt(gx**2 + gy**2)</code> 
+    where gy and gx are the outputs of convolution with Dx and Dy respectively. Then, gradient magnitudes are converted into binary values (1 for edge, 0 for no edge) 
+    by setting a thereshold (<code>edge = grad_mag >= threshold*np.max(grad_mag)</code>). Below, we see the results of setting threshold = 0.1 and 0.2. Setting a lower threshold 
+    leads to more noise as more grad_mag values are considered an "edge" and show up on the edge image. I selected threshold = 0.1 as a fairly good threshold that preserves the edges in the background. 
+</p>
+<img src="results/1.2_camaraman.png">
+
+<!-- Part 1.3 -->
+<h3 id="part1">Part 1.3: Derivative of Gaussian (DoG) Filter</h2>
+<p>
+    However, we can observe that the results for threshold=0.1 are slightly noisy (eg. there are many dots near the bottom where edges do not actually exist). To solve that, we first smoothen the original image before
+    convolving with the difference operators. We can do this by either (1) convolving with a 2d Gaussian filter then convolving with Dx and Dy, or (2) creating a derivative of 
+    gaussian (DoG) filter and convolving the original image with this filter. Both give the same result as convolution is commutative (A*B)*C = A*(B*C). 
+</p>
+    In the results below, threshold = 0.1 was used to get all binary edge images. We observe that smoothening the image with a Gaussian filter first leads to reduced noise and clearer edges. 
+</p>
+<img src="results/1.3_DoG.png">
+
+<!-- Part 2 -->
+<h2 id="part1">Part 2: Fun with Frequencies</h2>
+
+<!-- Part 2.1 -->
+<h3 id="part2"> 2.1: Image "Sharpening" </h3>
+<p>
+    Now let's move on to play with frequencies! In this section, we "sharpen" an image by adding some high frequencies to it. First, we use a Gaussian filter to retain only the low frequencies, then we subtract these low frequencies from the 
+    original image to obtain high frequencies. Finally, we add the high frequencies to the original image. Essentially, img + (img - img*G). This can be collapsed into one step by convolving the image with
+    <code> kernel = 2*I - G</code>, where G is a Gaussian filter and I is an identity filter that keeps the image as it is. 
+</p>
+    In our results, we notice that the sharpened images have lower contrast than the original image. This could be because the convolution produced pixel values outside the normal [0, 1] range.  
+    When matplotlib displays these out-of-range values, it clips them all to [0, 1], which reduces contrast. After applying proper clipping with <code>np.clip()</code>, the image is sharpened without 
+    impacting contrast.
+</p>
+
+<img src="results/2.1_sharpentaj.png">
+<img src="results/2.1_sharpendog.png">
+<img src="results/2.1_sharpenhands.png">
+<p>
+    We can also tweak the amount of sharpening we do with a variable <b>alpha</b> that controls how much of the high frequencies are added back. Essentially, img = img + alpha*(img - img*G) 
+    , and <code> kernel = (1 + alpha) * I - alpha * G</code>.
+</p>
+<img src="web_images/2.1_sharpenamt.png">
+
+<!-- Part 2.2-->
+<h3 id="part2"> 2.2: Hybrid Images </h3>
+<p>
+    In this section, we create hybrid images! Below, you should see an owl, the Tower of Pisa, and Nutmeg the cat (high frequencies). However, if you squint, zoom out, or move far away from your screen, 
+    you will see a butterfly, a banana, and Derek (low frequencies). 
+</p>
+    These hybrid images are made by combining the <b>low frequencies</b> of image A with the <b>high frequencies</b> of image B. 
+    On image A (eg. butterfly), a low-pass filter is applied by convolving it with a Gaussian kernel which smooths away fine details.
+    On image B (eg. owl), a high-pass filter is applied by subtracting the low-pass version of image B from the original image, leaving only edges and textures.
+    The two components are then added together, producing a hybrid image that looks like one subject at close range and another when viewed from afar.
+</p>
+<img src="web_images/2.2_butterflyowl.png">
+<img src="web_images/2.2_hybrids.png">
+<p>
+    Let's take a look at these images' Fourier transform spectrums! The Fourier transform represents an image in terms of spatial frequencies. Low frequencies (center of spectrum) correspond to smooth 
+    intensity changes and global structure, while high frequencies (edges of spectrum) correspond to fine details and sharp edges. The amplitude tells us how strong each frequency is.
+</p>
+    As seen below, the low-pass image shows energy concentrated near the center, meaning most detail has been blurred out. The high-pass image shows energy in the outer regions, emphasizing edges and textures. 
+    The hybrid spectrum is a combination, containing both central and peripheral frequency energy. 
+</p>
+<img src="web_images/2.2_images.png">
+<img src="web_images/2.2_fouriers.png">
+<p>
+    The <b>cutoff-frequencies</b> for each of the 3 examples were selected by trial and error, by tweaking the Gaussian's σ. For the low-pass image, a larger σ blurs the image more. 
+    For the high-pass image, a smaller σ makes the image very fine. The butterfly-owl example above has high-pass σ = 8 and low-pass σ = 12. 
+</p>
+
+<!-- Part 2.3-->
+<h3 id="part2"> 2.3: Gaussian and Laplacian Stacks </h3>
+
+<p>
+    In this section, we implement Gaussian and Laplacian stacks to prepare for the next section on multi-resolution blending. 
+</p>
+    First, we define a Gaussian filter, where convolution is performed via convolve2d with a Gaussian kernel of size 6σ+1. 
+    The <b>Gaussian stack</b> is built by repeatedly applying the Gaussian filter at each level, resulting in a progressively smoother 
+    (lower-frequency) version of the original image at each level. The <b>Laplacian stack</b> is built by subtracting consecutive Gaussian levels 
+    <code>l_stack[i] = g_stack[i] - g_stack[i + 1]</code>. Each Laplacian level thus corresponds to a frequency band, and the last level is simply the coarsest Gaussian.
+</p>
+    In the below Orapple example, we constructed the Gaussian and Laplacian stacks for the orange and apple images over 4 levels with σ=2.
+</p>
+<img src="results/2.3_apple_stacks.png">
+<img src="results/2.3_orange_stacks.png">
+
+
+<!-- Part 2.4-->
+<h3 id="part2"> 2.4: Multi-Resolution Blending </h3>
+<p>
+    Finally, we perform pyramid blending, a technique for smoothly combining two images using Gaussian and Laplacian stacks. This is the Orapple we get after blending! 
+</p>
+<img src="web_images/2.4_oraple.png">
+<p>
+    We first load and align two input images (im1 and im2), padding one if necessary. 
+
+    To control how the two images are blended, we define different masks - for example, a vertical split, a horizontal split, or an elliptical mask. 
+    Each mask indicates where one image should dominate and where the other should show through. We construct a Gaussian stack for the mask, 
+    which ensures a smooth blending transition.
+    </p>
+    Next, we build Laplacian stacks for the 2 images which captures different frequency bands of the images. 
+    At every level of our blending stack, we blend the two Laplacian images according to the blurred mask: 
+
+    <pre><code>
+        blending_stack = []
+        for l_im1, l_im2, mask in zip(im1_l_stack, im2_l_stack, mask_g_stack): 
+            blend = (l_im1 * mask) + (l_im2 * (1-mask)) 
+            blending_stack.append(blend)
+    </code></pre>
+    The blending stack is then collapsed back into a full image by adding together all the levels of the blending stack, starting from the coarsest level. 
+    Finally, the result is normalised and displayed.
+</p>
+    Thanks to the multiblending process, we can make many creative images! 
+<img src="web_images/2.4_blend.png">
+
+<!-- TOC-->
+<script>
+  const tocList = document.getElementById("toc-list");
+  document.querySelectorAll("h1, h2").forEach(header => {
+    if (header.id) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.textContent = header.textContent;
+      a.href = "#" + header.id;
+      li.appendChild(a);
+      tocList.appendChild(li);
+    }
+  });
+</script>
+
+</body>
+</html>
