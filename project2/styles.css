@@ -31,21 +31,6 @@ img {
   border-radius: 8px; 
 }
 
-.float-right {
-  float: right;
-  margin: 0px 20px 10px 20px; /* top, right, bottom, left spacing */
-  width: 10%;             /* optional: control size */
-}
-
-.center-img {
-  display: block;
-  margin-left: auto;
-  margin-right: auto;
-  width: 250px;   /* optional: control size */
-  height: auto;
-}
-
-
 /* Tables */
 table { 
   width: 100%; 
@@ -57,6 +42,37 @@ table {
 
 th, td { 
   padding: 10px; 
+}
+
+/* 2.2 Hybrid Images Table */
+.hybrid-table {
+  border-collapse: collapse;
+  text-align: center;
+  width: 100%;
+  height: 500px;  /* adjust total height as needed */
+}
+
+.input-cell {
+  width: 30%;
+  height: 50%;
+}
+
+.hybrid-cell {
+  width: 70%;
+}
+
+.img-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.img-container img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;  /* ensures image scales without distortion */
 }
 
 /* Images/GIFs inside tables */

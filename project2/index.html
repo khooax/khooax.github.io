@@ -35,7 +35,7 @@ This project focuses on building intuitions about 2D convolutions and filtering.
     We can make the convolution much faster by reducing to <b>two for-loops</b>. Instead of looping over kernel elements, we directly 
     extract an image patch the same size as the kernel and let NumPy handle the elementwise multiplication and summation efficiently.
 </p>
-    Near the edges, part of the kernel would “hang off” the image, leaving undefined values. To handle this, we pad the input image with extra pixels before applying the kernel.
+    <bold>Boundary handling: </bold> Near the edges, part of the kernel would “hang off” the image, leaving undefined values. To prevent the kernal from 'hanging off' the edges of the image, we pad the input image with extra pixels before applying the kernel.
     Specifically, we add kH // 2 rows of padding on the top and bottom, and kW // 2 columns on the left and right, where kH and kW are the kernel’s height and width. This ensures that 
     the kernel always has valid pixel values to multiply with, and the output image remains the same size as the input, since every input pixel (including edge pixels) 
     now has a full neighborhood defined.
@@ -105,18 +105,20 @@ This project focuses on building intuitions about 2D convolutions and filtering.
     Now, let's compute gradient magnitude images and edge images. The gradient magnitude for each pixel is obtained by taking <code>grad_mag = np.sqrt(gx**2 + gy**2)</code> 
     where gy and gx are the outputs of convolution with Dx and Dy respectively. Then, gradient magnitudes are converted into binary values (1 for edge, 0 for no edge) 
     by setting a thereshold (<code>edge = grad_mag >= threshold*np.max(grad_mag)</code>). Below, we see the results of setting threshold = 0.1 and 0.2. Setting a lower threshold 
-    leads to more noise as more grad_mag values are considered an "edge" and show up on the edge image. I selected threshold = 0.1 as a fairly good threshold that preserves the edges in the background. 
+    leads to more noise as more grad_mag values are considered an "edge" and show up on the edge image. I selected threshold = 0.1 as it preserves the edges in the background buildings,
+    even though it does also lead to some noise in the foreground (grass patch area). 
 </p>
 <img src="results/1.2_camaraman.png">
 
 <!-- Part 1.3 -->
 <h3 id="part1">Part 1.3: Derivative of Gaussian (DoG) Filter</h2>
 <p>
-    However, we can observe that the results for threshold=0.1 are slightly noisy (eg. there are many dots near the bottom where edges do not actually exist). To solve that, we first smoothen the original image before
-    convolving with the difference operators. We can do this by either (1) convolving with a 2d Gaussian filter then convolving with Dx and Dy, or (2) creating a derivative of 
+    Now, lets try to reduce the noise in the result for threshold = 0.1 by first smoothening the original image before
+    convolving it with the difference operators. We can do this by either (1) convolving with a 2d Gaussian filter then convolving with Dx and Dy, or (2) creating a derivative of 
     gaussian (DoG) filter and convolving the original image with this filter. Both give the same result as convolution is commutative (A*B)*C = A*(B*C). 
 </p>
-    In the results below, threshold = 0.1 was used to get all binary edge images. We observe that smoothening the image with a Gaussian filter first leads to reduced noise and clearer edges. 
+    In the results below, threshold = 0.1 was used to get all binary edge images. We observe that compared to just the finite difference method in Part 1.2, 
+    smoothening the image with a Gaussian filter first leads to reduced noise and clearer edges. 
 </p>
 <img src="results/1.3_DoG.png">
 
@@ -127,17 +129,16 @@ This project focuses on building intuitions about 2D convolutions and filtering.
 <h3 id="part2"> 2.1: Image "Sharpening" </h3>
 <p>
     Now let's move on to play with frequencies! In this section, we "sharpen" an image by adding some high frequencies to it. First, we use a Gaussian filter to retain only the low frequencies, then we subtract these low frequencies from the 
-    original image to obtain high frequencies. Finally, we add the high frequencies to the original image. Essentially, img + (img - img*G). This can be collapsed into one step by convolving the image with
+    original image to obtain high frequencies. Finally, we add the high frequencies to the original image. Essentially, img + (img - img*G). This can be also collapsed into one step by convolving the image with
     <code> kernel = 2*I - G</code>, where G is a Gaussian filter and I is an identity filter that keeps the image as it is. 
 </p>
-    In our results, we notice that the sharpened images have lower contrast than the original image. This could be because the convolution produced pixel values outside the normal [0, 1] range.  
-    When matplotlib displays these out-of-range values, it clips them all to [0, 1], which reduces contrast. After applying proper clipping with <code>np.clip()</code>, the image is sharpened without 
+    Initially, we notice that the sharpened images have lower contrast than the original image. This could be because the convolution produced pixel values outside the normal [0, 1] range that, when  
+     displayed by matplotlib, all got clipped to [0, 1]. After applying proper clipping with <code>np.clip()</code>, the image is sharpened without 
     impacting contrast.
 </p>
-
-<img src="results/2.1_sharpentaj.png">
-<img src="results/2.1_sharpendog.png">
-<img src="results/2.1_sharpenhands.png">
+<img src="web_images/2.1 taj .png">
+<img src="web_images/2.1 hand.png">
+<img src="web_images/2.1 dog.png">
 <p>
     We can also tweak the amount of sharpening we do with a variable <b>alpha</b> that controls how much of the high frequencies are added back. Essentially, img = img + alpha*(img - img*G) 
     , and <code> kernel = (1 + alpha) * I - alpha * G</code>.
