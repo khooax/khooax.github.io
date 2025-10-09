@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Project 3: Image Warping and Mosaicing</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<h1>Project 3A: Image Warping and Mosaicing (Manual)</h1>
+<p><b>By Khoo An Xian</b></p>
+
+This project focuses on creating an image mosaic by computing homographies, using them to warp images, and compositing images together. 
+We use manual feature matching in this part and visually select point correspondences across 2 images. 
+
+</p>
+
+<!-- Table of contents -->
+<div id="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc-list"></ul>
+</div>
+
+<!-- Part 1.1 -->
+<h2 id="part1">Part 1: Raw Pictures</h2>
+
+<p>
+    The following pictures were taken by fixing the center of projection (COP) and rotating the camera. They feature (1) my living room, (2) my hike at Yellowstone, and (3) Wheeler Auditorium.
+    They will each be stitched into a panorama! 
+</p>
+
+<table>
+  <tr>
+    <td><img src="submission/inputs/interior1.JPG"></td>
+    <td><img src="submission/inputs/interior2.JPG"></td>
+    <td><img src="submission/inputs/interior3.JPG"></td>
+  </tr>
+    <td><img src="submission/inputs/yellowstone1.JPG"></td>
+    <td><img src="submission/inputs/yellowstone2.JPG"></td>
+    <td><img src="submission/inputs/yellowstone3.JPG"></td>
+  </tr>
+    <td><img src="submission/inputs/wheeler1.JPG"></td>
+    <td><img src="submission/inputs/wheeler2.JPG"></td>
+    <td><img src="submission/inputs/wheeler3.JPG"></td>
+  </tr>
+</table>
+
+<!-- Part 2 -->
+<h2 id="part2">Part 2: Calculating Homographies</h2>
+
+<p>
+    First, we will recover the parameters of the transformation between each pair of images. The transformation is a homography: p’=Hp, 
+    where H is a 3x3 matrix with 8 degrees of freedom that transforms a point p in image 1 to p' in image 2. 
+    In order to compute the entries in the matrix H, we set up a linear system using n=12 pairs of points p and p'. 
+    These are correspondences, manually selected using matplotlib's <code>ginput</code> function. 
+</p> 
+    Here is the math and system of linear equations: 
+</p>
+
+<div class="image-container">
+  <img src="images/math.jpg">
+</div>
+
+<p>
+    Stacking n correspondences gives us a matrix equation <code>Ah = b</code>, where A is a 2nx8 matrix, b is a 2nx1 vector, 
+    and h is <code>[h11​,h12​,h13​,h21​,h22​,h23​,h31​,h32​^]T</code>. From this matrix equation, we solve for h using least squares: <code>h=((A^TA)^−1)(A^T)b</code>
+    and convert it back to a 3x3 homography matrix H. 
+</p>
+    Below, we display the correspondence points and homographies for the set of Wheeler Auditorium photos. 
+</p>
+
+<table>
+  <tr>
+      <td><img src="images/Hs.png"></td>
+  </tr>
+    <td><img src="images/wheelercorr_1.png"></td>
+  </tr>
+    <td><img src="images/wheelercorr_2.png"></td>
+  </tr>
+</table> 
+
+<!-- Part 3 -->
+<h2 id="part3">Part 3: Warping </h2>
+
+<p>
+    Now, we will implement warping using homographies. First, we predict the boundaries of the destination image by applying homography H on the 4 corners of the source image. 
+    We then initialise the destination image grid. Next, we do <b>inverse warping</b>, where for each destination pixel (xd, yd), we compute the corresponding source coordinates
+    using <code>(xs, ys) = H_inverse*[xd, yd, 1]^T</code>. This avoids holes (the usual problem of forward-warp).
+</p> 
+    When we get the source coordinates, it may not land directly on a whole pixel. Hence, we explore 2 methods to determine what pixel value to map over. 
+    The first is <b>Nearest Neighbor Interpolation</b>, where we round the source coordinates to the nearest pixel and take its value. 
+    The second is <b> Bilinear Interpolation</b>, where we take the weighted average of four neighboring pixel values. 
+</p> 
+    We test out these 2 interpolation methods to perform “rectification” on the following images.
+</p>
+
+<table>
+  <tr>
+    <td><img src="images/1.2_sail.png"></td>
+  </tr>
+    <td><img src="images/1.2_cal.png"></td>
+  </tr>
+    <td><img src="images/1.2_chessboard.png"></td>
+  </tr>
+</table> 
+
+<div class="image-container">
+        <img src="images/1.2_chesszoom.png">
+</div>
+
+<p>
+    <b>Nearest Neighbour (NN) VS Bilinear (BL) interpolation:</b> 
+    </p>
+    <b>Quality wise,</b> comparing the zoomed-in versions of NN and BL, we see that NN introduces jaggers/pixelated edges, while 
+    BL has less staircasing. This is because BL smooths and slightly blends values as it takes a weighted average of neighbouring pixels. 
+    However, in terms of <b>speed</b>, NN is faster as it involves just a rounding and fetch, while BN involves calculating weights, 
+    multiplication and addition on the pixel values of 4 neighbours. 
+    </p>
+    Overall, in the trade off between quality and speed, BN still is preferred as it still is relatively cheap and usually real-time for moderate image sizes. 
+    Visually, it also yields better results. We will use BN in our next panorama stitching stages. 
+</p> 
+
+
+<!-- Part 4 -->
+<h2 id="part4">Part 4: Mosaicing</h2>
+
+<p>
+    Finally, we will use all of the above to warp and combine 3 images create an image mosaic (panorama). The procedure is as follows:
+    
+  </p>
+    <b>Step 1: Compute homographies to reference frame</b></p>
+    Each adjacent image pair has manually chosen point correspondences. We compute pairwise homographies H1to2 and H2to3, each describing how to map image i to image i+1's coordinate frame. 
+    Next, we make homographies to express every image relative to image 2. We have <code>H1to2 = H1to2; H2to2 = np.eye(3); H3to2 = np.linalg.inv(H2to3)</code>
+    
+    </p>
+    <b>Step 2: Find bounding box of final mosaic</b></p>
+    Now we set a bounding box for our final mosaic by first seeing where all image corners land in the 2nd image's frame. 
+    We take the 4 corners of all images and pass them through their homography Hxto2, and find the collective xmin, x mas, ymin and ymax that gives us the bounding box for all images. 
+    The final panorama's width and height are W=⌈xmax​−xmin​⌉, H=⌈ymax​−ymin​⌉. 
+    Then we build a small translation homography T that shifts everything by (-xmin, -ymin) so that the top left corner aligns with (0,0) to ensure all warped images fit in the canvas. 
+
+  </p>
+    <b>Step 3: Wrap each image onto canvas </b></p>
+    The final homography for image x will be <code> Hx = T @ Hxto2 </code>. We wrap the image using <b>bilinear interpolation</b> <code>im_warped, mask = warpImageBilinear(im, H_final, out_shape=(H, W))</code>, 
+    producing a warped image that fits in the bounding box and a binary mask indicating which pixels in the panorama are filled by the warped image (HxW). 
+    We then convert the single-channel mask into three identical copies (H×W×3) — one per color channel. 
+    Finally, we <b>blend the images via weighted averaging</b>. For each pixel, the warped image contributions are summed (<code>num += im_warped * m3</code>) and divided by the total number of overlapping images 
+    (<code>den += m3</code>), yielding the average color value per pixel in the final mosaic.
+  </p>
+    Results below! 
+</p>
+
+<table>
+  <tr>
+    <td><img src="images/mosaic_interior.png"></td>
+  </tr>
+    <td><img src="images/mosaic_yellowstone.png"></td>
+  </tr>
+    <td><img src="images/mosaic_wheeler.png"></td>
+  </tr>
+</table> 
+
+<p>
+    We observe that the final panorama for Wheeler appears slightly blurry. This is likely due to small movements of subjects between the shots, unlike the living room panorama, which remains relatively sharp. 
+    In part 3B, we will look at how to fix this by automating feature matching across images. Stay tuned! 
+
+<!-- TOC-->
+<script>
+  const tocList = document.getElementById("toc-list");
+  document.querySelectorAll("h1, h2").forEach(header => {
+    if (header.id) {
+      const li = document.createElement("li");
+      const a = document.createElement("a");
+      a.textContent = header.textContent;
+      a.href = "#" + header.id;
+      li.appendChild(a);
+      tocList.appendChild(li);
+    }
+  });
+</script>
+
+</body>
+</html>
