@@ -7,11 +7,13 @@
 </head>
 <body>
 
-<h1>Project 3A: Image Warping and Mosaicing (Manual)</h1>
+<h1>Project 3: Sticking Photo Mosaics</h1>
 <p><b>By Khoo An Xian</b></p>
 
 This project focuses on creating an image mosaic by computing homographies, using them to warp images, and compositing images together. 
-We use manual feature matching in this part and visually select point correspondences across 2 images. 
+In <b>part A</b>, we focus on computing homographies, using them to warp images, and compositing images together. To compute homographies, we will 
+select point correspondences across 2 images manually. In <b>part B</b>, we will focus on automatic feature matching using Harris Corners Detection, 
+feature matching and a RANSAC algorithm to compute homographies.
 
 </p>
 
@@ -21,8 +23,10 @@ We use manual feature matching in this part and visually select point correspond
     <ul id="toc-list"></ul>
 </div>
 
-<!-- Part 1.1 -->
-<h2 id="part1">Part 1: Raw Pictures</h2>
+<!-- Part A-->
+<h2 id="partA">Part A: Image Mosaicing and Warping</h2>
+
+<h3 id="partA1">A.1: Raw Pictures</h3>
 
 <p>
     The following pictures were taken by fixing the center of projection (COP) and rotating the camera. They feature (1) my living room, (2) my hike at Yellowstone, and (3) Wheeler Auditorium.
@@ -46,7 +50,7 @@ We use manual feature matching in this part and visually select point correspond
 </table>
 
 <!-- Part 2 -->
-<h2 id="part2">Part 2: Calculating Homographies</h2>
+<h3 id="partA2">A.2: Calculating Homographies</h3>
 
 <p>
     First, we will recover the parameters of the transformation between each pair of images. The transformation is a homography: p’=Hp, 
@@ -80,7 +84,7 @@ We use manual feature matching in this part and visually select point correspond
 </table> 
 
 <!-- Part 3 -->
-<h2 id="part3">Part 3: Warping </h2>
+<h3 id="partA3">A.3: Warping</h3>
 
 <p>
     Now, we will implement warping using homographies. First, we predict the boundaries of the destination image by applying homography H on the 4 corners of the source image. 
@@ -120,9 +124,8 @@ We use manual feature matching in this part and visually select point correspond
     Visually, it also yields better results. We will use BN in our next panorama stitching stages. 
 </p> 
 
-
 <!-- Part 4 -->
-<h2 id="part4">Part 4: Mosaicing</h2>
+<h3 id="partA4"> A.4: Mosaicing</h3>
 
 <p>
     Finally, we will use all of the above to warp and combine 3 images create an image mosaic (panorama). The procedure is as follows:
@@ -161,20 +164,127 @@ We use manual feature matching in this part and visually select point correspond
 </table> 
 
 <p>
-    We observe that the final panorama for Wheeler appears slightly blurry. This is likely due to small movements of subjects between the shots, unlike the living room panorama, which remains relatively sharp. 
-    In part 3B, we will look at how to fix this by automating feature matching across images. Stay tuned! 
+    We observe that the final panoramas can appear slightly blurry, likely due to errors in manual selection of our point correspondences. 
+    In part 3B, we will look at how to fix this by automating feature matching across images! 
+
+
+<!-- Part B.1 -->
+<h2 id="partB">Part B: Feature Matching for Autostitching</h2>
+<h3 id="partB1"> B.1: Harris Corner Detection</h3>
+
+<p> In this section, we create a system for automatically stitching images into a mosaic. 
+  </p>
+  First, we will implement <b>Harris Corner Detection</b>. We use skimage's <code>corner_harris</code> to compute the Harris response map h, which assigns a corner strength value to each pixel, 
+  indicating how likely it is to be a corner. We then find local maxima in this map using skimage's <code>peak_local_max</code>, ensuring that detected corners are spaced at least <code>min_dist</code>=10 pixels apart 
+  and exceed a <code>threshold</code>=0.1 (basically, only shortlist corners with h values > h.max() * threshold). We remove points that lie within <code>edge_discard</code>=20 pixels of the image edges. 
+  We return both the full Harris response map h and the coordinates of valid corners.
+  </p>
+  Next, we apply <b>Adaptive Non-Maximal Suppression</b> which refines these detected corners to keep only spatially well-distributed 
+  and distinctive ones. For each corner, it finds the distance to the nearest corner that has a stronger Harris response. This distance, called the suppression radius, 
+  indicates how isolated a corner is among stronger points. Corners with larger radii are more valuable since they represent locally unique and prominent features. 
+  Finally, we select <code>num_points</code>=200 corners with the largest suppression radii, producing a set of strong, evenly spaced points suitable for robust 
+  feature matching and image alignment. 
+</p>
+
+<img src="images_3b/1_corners.png"></td>
+
+<!-- Part B.2 -->
+<h3 id="partB2"> B.2: Feature Descriptor Extraction</h3>
+
+<p> 
+  Next, we create feature descriptors around previously detected corner points. For each corner, we sample a 40×40 window centered on the corner 
+  to capture local image structure. In each window, we extract an 8×8 patch by sampling pixels at fixed intervals of <code>sample_spacing</code>=5, 
+  which downsamples the window while retaining key texture information. 
+  </p>
+  Each 8x8 patch is then flattened into a 1D feature vector and normalized to ensure the descriptor is insensitive to changes in overall brightness or contrast. 
+  Patches with near-zero variance (flat regions) are discarded because they lack meaningful structure. Finally, we return an array of all valid descriptors (N x (patch_size*patch_size)), 
+  along with their corresponding corner coordinates (2xN). This is a set of feature descriptors that represent the local appearance around strong, well-distributed corners 
+  — suitable for feature matching between images.
+</p>
+
+<img src="images_3b/2_features.png"></td>
+
+<!-- Part B.3 -->
+<h3 id="partB3"> B.3: Feature Matching</h3>
+
+<p> 
+  Now, we match features across 2 images together by computing the euclidean distances between all the descriptors and using the <b>Lowe's ratio test</b>. 
+  Lowe's ratio = (distance for the best match)/(distance for the second best match). A high ratio means that we have a clear match with little confusion, 
+  and we consider only matches with ratio above <code>ratio_thresh = 0.8</code> as valid matches. This returns a list of all matched points between 2 images.
+</p>
+
+<img src="images_3b/3_matches.png"></td>
+
+<!-- Part B.4 -->
+<h3 id="partB4"> B.4: RANSAC for Robust Homography</h3>
+
+<p> 
+  In this last section, we use 4-point RANSAC to compute our homography. It starts with the matched points from both images. 
+  We first randomly sample 4 matched point pairs to compute a candidate homography H. Then we project all image1 points to image2 using this H, and 
+  compute a reprojection error — the distance between the projected point and the true match point — for all matches. Matches with errors below the 
+  inlier_threshold are considered inliers, representing matches that agree with the estimated transformation. 
+</p>
+  Over <code>n_iters</code>=2000 iterations, the function keeps track of the candidate H with the most inliers, representing the best geometric fit. 
+  Finally, from the best candidate H, it recomputes a final homography using all of that H's inliers. The resulting best_H matrix encodes the optimal 
+  perspective warp aligning image 1 to image 2, while best_inliers identifies which matches were geometrically consistent under that transformation.
+</p>
+  The below image shows the results of RANSAC (inliers = green, outliers = red). Looking at the placements of the green dots across the 2 images, we see  
+  that they do indeed match! 
+</p>
+
+<img src="images_3b/4_inliers.png"></td>
+
+<p>
+  With the best_H homographies computed from RANSAC, we can stitch together panoramas using the techniques in part A.
+  Here are the results! We first show the new panoramas with auto feature matching, then the old panoramas from Part 3A (with manual matching) below for comparison. 
+  We see that for the Yellowstone and Wheeler Auditorium images that have lots of details, auto feature matching improves the clarity of the panoramas significantly.
+</p>
+
+<table>
+  <tr>
+    <td><img src="images_3b/panorama_interior.png"></td>
+  </tr>
+    <td><img src="images/mosaic_interior.png"></td>
+  </tr>
+    <td><img src="images_3b/panorama_wheeler.png"></td>
+  </tr>
+    <td><img src="images/mosaic_wheeler.png"></td>
+  </tr>
+    <td><img src="images_3b/panorama_yellowstone.png"></td>
+  </tr>
+    <td><img src="images/mosaic_yellowstone.png"></td>
+  </tr>
+</table> 
+
 
 <!-- TOC-->
-<script>
+ <script>
   const tocList = document.getElementById("toc-list");
-  document.querySelectorAll("h1, h2").forEach(header => {
-    if (header.id) {
-      const li = document.createElement("li");
-      const a = document.createElement("a");
-      a.textContent = header.textContent;
-      a.href = "#" + header.id;
-      li.appendChild(a);
+  const headers = document.querySelectorAll("h2, h3");
+
+  let currentH2Item = null;
+  let currentSubList = null;
+
+  headers.forEach(header => {
+    if (!header.id) return;
+
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.textContent = header.textContent;
+    a.href = "#" + header.id;
+    li.appendChild(a);
+
+    if (header.tagName === "H2") {
+      // main section
       tocList.appendChild(li);
+      currentH2Item = li;
+
+      // create a sublist placeholder for potential h3s
+      currentSubList = document.createElement("ul");
+      currentH2Item.appendChild(currentSubList);
+    } else if (header.tagName === "H3" && currentSubList) {
+      // subsection under the last h2
+      currentSubList.appendChild(li);
     }
   });
 </script>

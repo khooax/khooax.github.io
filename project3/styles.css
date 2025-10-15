@@ -58,11 +58,18 @@ th, td {
   border-radius: 8px; 
 }
 
-#toc ul { 
-  list-style: none; 
-  padding-left: 0; 
+#toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-#toc li { 
-  margin-bottom: 5px; 
+#toc > ul > li {
+  margin: 0.4rem 0;
+}
+
+#toc ul ul {
+  margin-left: 1.2rem; /* indent h3s */
+  border-left: 2px solid #eee;
+  padding-left: 0.8rem;
 }
