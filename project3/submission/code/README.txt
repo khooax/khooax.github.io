@@ -24,8 +24,7 @@ submission/
 │   └─ main_3B.py  
 │   └─ README.txt           
 ├─ web/
-│   └─ page3A.pdf         
-│   └─ page3B.pdf         
+│   └─ page.pdf         
 
 How to Run:
 Run the scripts directly with either 
