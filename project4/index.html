@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Project 4: Neural Radiance Field</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<h1>Project 3: Stitching Photo Mosaics</h1>
+<p><b>By Khoo An Xian</b></p>
+
+Neural Radiance Fields (NeRF), is a technique that creates realistic 3D scene representations from a set of 2D images. 
+It uses a neural network to learn a continuous volumetric representation of a scene, allowing it to synthesize novel views from any angle 
+by mapping a 3D point and viewing direction to a color and density. This project focuses on building a NeRF for an object!
+This involves first calibrating the camera parameters, then using them to estimate pose. 
+
+</p>
+
+<!-- Table of contents -->
+<div id="toc">
+    <h2>Table of Contents</h2>
+    <ul id="toc-list"></ul>
+</div>
+
+<!-- Part 1 -->
+<h2 id="part0">Part 0: Camera Calibration</h2>
+
+<p>
+    In part 0, we build a pipeline to calibrate the camera (intrinsics K) and estimate pose (extrinsics [R|t]) using ArUco markers. 
+    These results will be used later in 3D reconstruction tasks like NeRF. 
+</p>
+
+<h3 id="part01">0.1: Computing Camera Intrinsics</h3>
+
+<img src="images/0_aruco.png">
+<p>
+    30 images of ArUco tags were taken from different angles and distances. The core calibration is handled by <code>calibrate_camera_with_aruco()</code>, 
+    which loops through all 30 images, uses OpenCV's built-in detector <code>create_aruco_detector()</code> to detect any ArUco tags and return all their corners' 
+    pixel coordinates, then records these 2D pixel coords and the corresponding known 3D world coords (we know the tags' sizes eg. 6cm x 6cm and assume all tags lie flat on the z=0 plane).
+</p>
+    After accumulating enough of such correspondences, it calls OpenCV's <code>cv2.calibrateCamera()</code> which performs camara calibration and estimates the intrinsic matrix K and lens distortion. 
+    It essentially finds the best fit camera model that projects the known 3D tag coordinates onto their observed 2D pixel locations by minimising the reprojection error. 
+</p>
+
+<h3 id="part02">0.2: Estimating Camera Extrinsics</h3>
+
+<p>
+    Now, we take 50 images of my scrunchie with an ArUco tag, and try to estimate the camera's pose (3D position and orientation) relative to the object for each image. 
+    Our main function is <code>estimate_camera_poses()</code>. 
+</p>
+    For each image, the tag corners are detected again. Then, we use Perspective-n-Point (<code>cv2.solvePnP()</code>) to estimate the camera's extrinsic matrix [R|t]. 
+    PnP essentially estimates the 3D rotation and translation vectors that best map the known 3D tag coordinates to the observed 2D pixel coords, given the known camera intrinsics. 
+</p>
+    These vectors are converted into a 4×4 camera-to-world transformation matrix (c2w), representing where the camera was located and how it was oriented when each photo was taken.
+    This reconstructs the spatial layout of all camera viewpoints relative to the marker, a crucial step for 3D scene reconstruction. The function <code>visualize_poses_viser()</code>
+    then visualises these camera positions as small frustrums. 
+</p>
+    Finally, <code>undistort_and_package_dataset()</code> packages the images and c2ws together to create a NeRF-ready dataset. It removes lens distortion from each image with 
+    <code>cv2.undistort</code>>, crops out the black borders caused by lens correction, and downsizes the images for less computationally expensive NeRF training. Then the undistorted images and 
+    correspondign c2w poses are split into training, validation and test subsets and saved in a .npz file for 3D reconstruction later. 
+</p>
+
+<table>
+  <tr>
+    <td><img src="images/0_viser0.1.png"></td>
+    <td><img src="images/0_viser0.2.png"></td>
+  </tr>
+</table>
+
+<!-- Part 1 -->
+<h2 id="part1">Part 1: 2D Neural Field</h2>
+
+<p>
+    In part 1, we build a simplified version of NeRF using a 2D example. In 3D space, we use a neural radiance field (F: {x,y,z,θ,φ} → {r,g,b,σ}) to represent a 3D space. 
+    In 2D, we use a neural field (F: {u,v}) → {r,g,b}. Once trained, the MLP learns a function for 1 image that directly maps 2D pixel coordinates to RGB colors. It is then
+    able to reconstruct the image just from coordinates, without storing the 2D image array directly.
+</p>
+
+<h3 id="part1.0">Model Architecture</h3>
+<ul>
+    <li><b>Positional Encoding: </b>L=10, output_dim=42</li>
+    <li><b>Hidden layers:</b> 4 layers of 256 neurons</li>
+    <li><b>Activations:</b> 3x ReLU + 1x Sigmoid</li>
+    <li><b>Learning rate:</b> 1e-2</li>
+    <li><b>Optimiser:</b> Adam</li>
+</ul>
+
+<h3 id="part1.1">Training</h3>
+<ol>
+    <li><b>Sample pixels:</b>  Each training iteration samples a random batch of pixel coordinates (u,v) and their ground truth colors (r,g,b) from the image.</li>
+    <li><b>Predict colors:</b> Each coordinate is encoded via <b>Sinusoidal Positional Encoding</b>. <code>PE(x,y) = [x, y, sin(2^0πx), cos(2^0πx), sin(2^1πx), cos(2^1πx) ,…]</code>. This expands the 2D input into a richer 
+    (2+4L)D feature vector containing both low-and high-frequency positional signals (L = max frequency level). This is passed through the <bold>MLP</bold> which outputs a predicted color c = F(PE(x,y)). </li>
+    <li><b>Compute loss:</b> Mean squared error between the predicted and actual color is calculated and used as the loss function.</li>
+    <li><b>Backpropagation:</b> We use gradient descent (Adam optimizer) to update the MLP weights to reduce the loss function.</li>
+</ol>
+    This is repeated for 1000 iterations. Below, we see the reconstructed images as the model and function improves across iterations, as well as the improvement in Peak Signal-to-Noise Ratio (PSNR = 10lg(1/MSE)).
+</p>
+<img src="images/1_iterations.png">
+<img src="images/1_iterations2.png">
+<img src="submission/MLP_results/psnr_curve.png">
+
+<h3 id="part1.2">Inference</h3>
+After training, the MLP's paramaters encode the learned function F. We pass in every pixel coordinate (full grid of x,y values), and the MLP predicts a color for each one. The predicted 
+colors are then reshaped into a 2D image. This way, the network reconstructs a continuous version of the image.
+
+<h3 id="part1.2">Choices of hyperparameters</h3>
+<p>
+    Now, lets focus on 2 hyperparameters: L (max frequency level in Sinusoidal PE) and layer width.
+</p>
+    <b>Sinusoidal PE </b> 
+</p>
+    Positional encoding projects each coordinate into a high-dimensional space using multiple sine and cosine waves at increasing frequencies. 
+    <code>PE(x,y) = [x, y, sin(2^0πx), cos(2^0πx), sin(2^1πx), cos(2^1πx) ,…]</code>  
+    Each term represents a different spatial frequency — from coarse to fine. By feeding these into the network, it learns to mix and weight these sine/cosine features to reconstruct both 
+    low freq/smooth regions and high freq/fine regions. Without PE, the MLP receives only smooth coordinate inputs (x,y) in [0, 1]. As standard ReLU-based networks' outputs are smooth functions, they will struggle to 
+    approximate high-frequency details like edges, textures, or small features. Hence, the reconstructed image will look blurry. 
+    In the below hyperparameter grid, we see that a low max frequency level (<b>L=2</b>) results in a blurrier image than a <b>L=10</b>. 
+</p>
+    <b>Width of Hidden Layers </b> 
+</p>
+    A wider linear layer (more neurons) increases the number of parameters in our model which allows us to model more complex patterns and fine image details. 
+    Narrow layers can lead to underfitting and inability to capture variation in the image, while overly wide layers slows training and may risk overfitting. 
+    In the below hyperparameter grid, we see that narrow layers (<b>Width=64</b>) generally result in blurrer images than wider layers (<b>Width=256</b>). 
+</p>
+<table>
+  <tr>
+    <td><img src="images/1_grid.png"></td>
+    <td><img src="images/1_grid2.png"></td>
+  </tr>
+</table>
+
+
+<!-- Part 2 -->
+<h2 id="part2">Part 2: 3D Neural Radiance Field (NeRF)</h2>
+
+<p>
+    In part 2, we build the full NeRF! To recap, we want to represent a scene as a continuous 5D function that maps a 3D spatial location and viewing direction 
+    to an RGB color and volume density (F: {x,y,z,θ,φ} → {r,g,b,σ}) This allows NeRF to reconstruct realistic 3D scene representations from a set of 2D images.
+    The NeRF pipeline has 4 main stages: 
+    <ol>
+        <li>Sample rays from images, then sample multiple points along each ray 
+        <li>Query the NeRF MLP with the points to predict an RGB color and volume density at that point</li>
+        <li>Use volume rendering to composite the colors and densities of points along a ray into a single pixel color for each ray</li>
+        <li>Compare with the ground truth pixel color, compute loss, and optimise NeRF MLP</li>
+    </ol>
+</p>
+
+<h3 id="part2.1">1. Sampling</h3>
+<p>
+    First, we write a function <code>pixel_to_ray(K, c2w, uv)</code> to <b>transform pixels on our training images into rays</b>. We first transform pixel coordinates into camera coordinates using the intrinsic matrix K, 
+    then into world coordinates using the camera-to-world transformation matrix c2w. For each pixel, the origin of its ray (ray_o) is the translation component of c2w, and 
+    the direction of its ray (ray_d) is given by its world coordinates - ray origin. ray_o and ray_d define a ray for each pixel. 
+</p>
+    Next, we implement a dataloader class <code>RaysData</code> which <b>samples rays from images</b>. We flatten all pixels from all images, do a global sampling to get N random pixels across images, 
+    and convert them into 3D rays. <code>RaysData.sample_rays(n_rays)</code> returns the ray origin, ray direction and ground truth pixel colors of the sampled rays. 
+</p> 
+    Then, we <b>sample points along each ray</b> using stratified sampling — dividing the ray into bins between near and far bounds and randomly sampling within each bin to 
+    ensure good coverage of the 3D space. 
+</p>
+    Below, we visualise the images and sampled rays. The first 2 pictures show 100 rays sampled from 1 image (aka 1 camera), while the 3rd picture shows global sampling of 100 rays from multiple images. 
+    64 points are sampled along each ray (represented by black dots on rays).
+<table>
+    <tr>
+        <td><img src="images/2_lego.png"></td>
+        <td><img src="images/2_lego2.png"></td>
+        <td><img src="images/2_lego3.png"></td>
+    </tr>
+</table>
+
+<h3 id="part2.2">2. Query the NeRF MLP</h3> 
+<p>
+    For each sampled point, we then query the NeRF MLP with its 3D coordinates and the ray direction to predict an RGB color and volume density at that location. 
+    <ul>
+        <li><b>Input: </b> 3D point coordinates encoded with sinusoidal positional encoding at L=10 and ray directions encoded at L=4. As mentioned above, this positional encoding is crucial in allowing MLPs to learn high-frequency functions and avoid blurry reconstructions.</li>
+        <li><b>Architecture: </b> The architecture consists of 8 fully-connected layers with 256 hidden units each, with ReLU activations. A skip connection concatenates the input coordinates to the intermediate features after the 4th layer, 
+    which helps with gradient flow during training. Density is predicted from coordinate-dependent features alone (since density is view-independent), while color is predicted after 
+    concatenating view-direction features, allowing the network to model view-dependent appearance effects like specular highlights.</li>
+        <li><b>Output: </b> The model outputs an RGB color and volume density at that point in space </li>
+    </ul>
+</p>
+<img src="images/3_mlp.png">
+
+<h3 id="part2.4"> 3. Volume rendering</h3>
+<p>
+    Next, we take the color and volume density of various points along a ray and <b>composit them into a final pixel color</b> for the ray using the <b>volume rendering equation</b>. 
+    For each sample point along a ray, we compute its contribution using three quantities: density σᵢ (how opaque the space is at that point), distance δᵢ (spacing to the next sample), and color cᵢ. 
+    The opacity (probability that a ray terminates at point i) is given by αᵢ = 1 - exp(-σᵢ · δᵢ). The transmittance Tᵢ = ∏ⱼ₍ⱼ₎(1 - αⱼ) represents the probability that the ray reaches point i without 
+    being absorbed earlier. The weight of each sample is then wᵢ = Tᵢ · αᵢ, and the final ray color is C(r) = Σᵢ wᵢ · cᵢ. A white background is added by blending with (1 - Σᵢ wᵢ) to handle transparent 
+    regions. This formulation handles occlusion (opaque surfaces block rays), semi-transparency (low density allows rays to pass through), and compositing (multiple surfaces contribute to the final color), 
+    producing a final rendered pixel color for each ray.
+</p>
+
+<h3 id="part2.5"> 4. Training NeRF</h3>
+<p> 
+    To train NeRF, we use the MSE between rendered and ground truth pixel colors as the loss. This is an overview of the training: At each iteration, we randomly sample batch_size=10,000 rays from random 
+    images in the training set. For each ray, we sample n_samples=64 points, query the network to get colors and densities at those points, perform volume rendering to get the pixel color of that ray, 
+    and compute the MSE loss against the true pixel color. Gradients are backpropagated through the entire pipeline—including the volume rendering equation—to update the network weights. The training uses 
+    Adam optimizer with a learning rate around 5×10⁻⁴. 
+</p>
+<img src="images/3_images.png">
+<p> 
+    We track the training loss and validation peak-signal-to-noise-ratio (PSNR = 10log(1/MSE)). After 1600 iterations, we achieve PSNR values of 24.90 dB on validation images and can render photorealistic 
+    novel views from arbitrary camera positions, as seen from the gif! 
+</p>
+<img src="images/3_loss.png">
+<img src="images/novel_views.gif" class="center">
+
+<h3 id="part2.5"> OUR OWN DATA</h3>
+
+<p> 
+    We repeated the process for our own training dataset of 50 scrunchie images. 
+</p>
+
+<table>
+  <tr>
+    <td><img src="images/0_viser1.png"></td>
+    <td><img src="images/0_viser3.png"></td>
+  </tr>
+</table>
+
+<b>Model Hyperparameters</b>
+<ul>
+    <li>num_iters=10000</li>
+    <li>batch_size=10000</li>
+    <li>lr=5e-4 (exponentially decayed)</li>
+</ul>
+
+<p> 
+    We trained for 10000 iterations, with an exponential learning-rate decay starting with an initial LR of 5e-4 as per the original NeRF paper. 
+    When rendering rays, near and far values for sampling points on rays were set using the camera distances from origin as a gauge (near=0.20, far=0.45). 
+    In our results, PSNR appears high, but the rendered images and GIF have much areas for improvement. More experiments would be necessary to understand the disparity between our 
+    PSNR and our visual results. (If the gif is frozen, please reload the page, thank you!) 
+</p>
+<img src="images/iters.png">
+<img src="images/loss_psnr.png">
+<img src="images/giveup.gif" class="center">
+
+<!-- TOC-->
+ <script>
+  const tocList = document.getElementById("toc-list");
+  const headers = document.querySelectorAll("h2, h3");
+
+  let currentH2Item = null;
+  let currentSubList = null;
+
+  headers.forEach(header => {
+    if (!header.id) return;
+
+    const li = document.createElement("li");
+    const a = document.createElement("a");
+    a.textContent = header.textContent;
+    a.href = "#" + header.id;
+    li.appendChild(a);
+
+    if (header.tagName === "H2") {
+      // main section
+      tocList.appendChild(li);
+      currentH2Item = li;
+
+      // create a sublist placeholder for potential h3s
+      currentSubList = document.createElement("ul");
+      currentH2Item.appendChild(currentSubList);
+    } else if (header.tagName === "H3" && currentSubList) {
+      // subsection under the last h2
+      currentSubList.appendChild(li);
+    }
+  });
+</script>
+
+</body>
+</html>
