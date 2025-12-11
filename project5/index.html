@@ -38,7 +38,6 @@ In the second part, we move on to train our own flow matching model from scratch
     In part 1, we write the forward process of diffusion, which takes a clean image and adds noise to it. we get a noisy image xt at timestep t by sampling from a Gaussian ~N(0,1).
     Below, we show the test image of Campanile at noise levels [250, 500, 750].
 </p>  
-<img src="images/p1code.png">
 <img src="images/part1.png">
 
 <!-- Part 0 -->
@@ -91,7 +90,6 @@ In the second part, we move on to train our own flow matching model from scratch
     combine them to get a CFG noise estimate which is used for denoising. Now, our prompt ("a high quality photo") becomes a condition to generate conditional noise, and we get much better results than previous tries. 
 </p>
 <img src="images/p6.png">
-<img src="images/p6code.png">
 
 <!-- Part 0 -->
 <h2 id="part7">SDEdit</h2>
@@ -130,7 +128,6 @@ In the second part, we move on to train our own flow matching model from scratch
     We can use the same procedure to implement inpainting. That is, given an image and a binary mask, we can create a new image that has the same content where is m is 0, but new content wherever m is 1. 
     To do this, we can run the diffusion denoising loop. But at every step, after obtaining xt, we "force" xt to have the same pixels x0 whereever m = 0. 
 </p>
-<img src="images/p7.2code.png">
 <img src="images/p7.2inpaint.png">
 <img src="images/p7.2inpaint2.png">
 <img src="images/p7.2inpaint3.png">
@@ -148,7 +145,6 @@ In the second part, we move on to train our own flow matching model from scratch
     Visual anagrams are images that change appearance when transformed, such as being rotated or flipped. We can create them by denoising an image xt at step t normally with the prompt p1 to obtain noise estimate e1.
      But at the same time, we will flip xt upside down, denoise with the prompt p2 to get noise estimate e2. We then e2 flip back and average the two noise estimates and use it to perform denoising. 
 </p>
-<img src="images/p8code.png">
 <img src="images/p8.1.png">
 <img src="images/p8.2.png">
 <img src="images/p8.3.png">
@@ -159,7 +155,6 @@ In the second part, we move on to train our own flow matching model from scratch
     In this part we'll implement Factorized Diffusion. To create hybrid images with a diffusion model we can use a similar technique as above and create a composite noise estimate by estimating the noise with two different text prompts. 
     We can then combining low frequencies from one noise estimate with high frequencies of the other.
 </p>
-<img src="images/p9code.png">
 <img src="images/p9.png">
 
 
